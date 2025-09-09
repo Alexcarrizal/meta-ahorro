@@ -61,7 +61,7 @@ const getPaymentColorStyles = (color: string) => {
 
 const PaymentCard = ({ payment, onEdit, onDelete, onContribute }: PaymentCardProps) => {
   const { id, name, amount, paidAmount, dueDate, category, frequency, color } = payment;
-  const isCovered = paidAmount >= amount;
+  const isCovered = (amount - paidAmount) < 0.001;
   const progress = amount > 0 ? Math.min((paidAmount / amount) * 100, 100) : 0;
   const remainingAmount = Math.max(0, amount - paidAmount);
 

@@ -355,7 +355,7 @@ const App = () => {
     today.setHours(0, 0, 0, 0);
 
     const upcomingPayments = payments.filter(p => {
-        if (p.paidAmount >= p.amount) {
+        if ((p.amount - p.paidAmount) < 0.001) {
             return false; // Already paid
         }
 
@@ -464,7 +464,7 @@ const App = () => {
     });
 
     // Unpaid real payments
-    const unpaidRealPayments = payments.filter(p => p.paidAmount < p.amount);
+    const unpaidRealPayments = payments.filter(p => (p.amount - p.paidAmount) > 0.001);
     
     // Virtual payments for credit cards with balances
     const existingUnpaidCardPaymentIds = new Set(unpaidRealPayments
@@ -538,8 +538,8 @@ const App = () => {
 
   const filteredPayments = useMemo(() => {
     const sorted = [...payments].sort((a, b) => {
-      const isAPaid = a.paidAmount >= a.amount;
-      const isBPaid = b.paidAmount >= b.amount;
+      const isAPaid = (a.amount - a.paidAmount) < 0.001;
+      const isBPaid = (b.amount - b.paidAmount) < 0.001;
       if (isAPaid && !isBPaid) return 1;
       if (!isAPaid && isBPaid) return -1;
       if(isAPaid && isBPaid) return new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime(); // Sort paid descending
@@ -550,7 +550,7 @@ const App = () => {
     today.setHours(0, 0, 0, 0);
 
     return sorted.filter(p => {
-        const isPaid = p.paidAmount >= p.amount;
+        const isPaid = (p.amount - p.paidAmount) < 0.001;
         const dueDate = new Date(p.dueDate + 'T00:00:00');
         const diffTime = dueDate.getTime() - today.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -790,7 +790,7 @@ const App = () => {
         };
 
         const newPayments = [...currentPayments];
-        const isNowFullyPaid = roundedPaidAmount >= originalPayment.amount;
+        const isNowFullyPaid = (originalPayment.amount - roundedPaidAmount) < 0.001;
 
         if (isNowFullyPaid && originalPayment.frequency !== Frequency.OneTime) {
             const currentDueDate = new Date(originalPayment.dueDate + 'T00:00:00');
