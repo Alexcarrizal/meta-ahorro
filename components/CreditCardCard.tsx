@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { CreditCard } from '../types.ts';
-import { DotsVerticalIcon, TrashIcon, CreditCardIcon, RefreshCwIcon } from './icons.tsx';
+import { DotsVerticalIcon, TrashIcon, CreditCardIcon, PlusIcon, WalletIcon } from './icons.tsx';
 
 interface CreditCardCardProps {
     card: CreditCard;
     onEdit: (card: CreditCard) => void;
     onDelete: (id: string) => void;
-    onUpdateBalance: (card: CreditCard) => void;
+    onAddPurchase: (card: CreditCard) => void;
+    onMakePayment: (card: CreditCard) => void;
 }
 
 const formatCurrency = (amount: number) => {
@@ -28,7 +29,7 @@ const getCardColorStyles = (color: string) => {
     return colorMap[color] || colorMap.purple;
 };
 
-const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance }: CreditCardCardProps) => {
+const CreditCardCard = ({ card, onEdit, onDelete, onAddPurchase, onMakePayment }: CreditCardCardProps) => {
     const { id, name, creditLimit, currentBalance, cutOffDay, paymentDueDateDay, color } = card;
     const availableCredit = creditLimit - currentBalance;
     const usagePercentage = creditLimit > 0 ? (currentBalance / creditLimit) * 100 : 0;
@@ -122,10 +123,14 @@ const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance }: CreditCardC
                 </div>
             </div>
 
-            <div className="mt-auto">
-                <button onClick={() => onUpdateBalance(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors ${styles.button}`}>
-                    <RefreshCwIcon className="w-5 h-5"/>
-                    Actualizar Saldo
+            <div className="mt-auto grid grid-cols-2 gap-3">
+                <button onClick={() => onAddPurchase(card)} className="w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-white/10 hover:bg-white/20">
+                    <PlusIcon className="w-5 h-5"/>
+                    Compras
+                </button>
+                <button disabled={isPaid} onClick={() => onMakePayment(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors ${styles.button} disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                    <WalletIcon className="w-5 h-5"/>
+                    Abonos
                 </button>
             </div>
         </div>
