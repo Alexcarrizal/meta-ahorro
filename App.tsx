@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard } from './types.ts';
-import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, AddPurchaseModal, MakeCardPaymentModal, PaymentCompletedModal } from './components/modals.tsx';
+import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, UpdateBalanceModal, PaymentCompletedModal, AlertModal } from './components/modals.tsx';
 import GoalCard from './components/GoalCard.tsx';
 import PaymentCard from './components/PaymentCard.tsx';
 import WishlistCard from './components/WishlistCard.tsx';
@@ -212,9 +212,10 @@ const App = () => {
   const [isDayActionModalOpen, setDayActionModalOpen] = useState(false);
   const [isWishlistModalOpen, setWishlistModalOpen] = useState(false);
   const [isCreditCardModalOpen, setCreditCardModalOpen] = useState(false);
-  const [isAddPurchaseModalOpen, setAddPurchaseModalOpen] = useState(false);
-  const [isMakeCardPaymentModalOpen, setMakeCardPaymentModalOpen] = useState(false);
+  const [isUpdateBalanceModalOpen, setUpdateBalanceModalOpen] = useState(false);
   const [isPaymentCompletedModalOpen, setPaymentCompletedModalOpen] = useState(false);
+  const [isRestoreAlertOpen, setRestoreAlertOpen] = useState(false);
+  const [isBackupOnLockModalOpen, setBackupOnLockModalOpen] = useState(false);
   
   const [goalToEdit, setGoalToEdit] = useState<SavingsGoal | null>(null);
   const [goalToProject, setGoalToProject] = useState<SavingsGoal | null>(null);
@@ -223,10 +224,11 @@ const App = () => {
   const [paymentToContribute, setPaymentToContribute] = useState<Payment | null>(null);
   const [wishlistItemToEdit, setWishlistItemToEdit] = useState<WishlistItem | null>(null);
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
-  const [cardForTransaction, setCardForTransaction] = useState<CreditCard | null>(null);
+  const [cardToUpdateBalance, setCardToUpdateBalance] = useState<CreditCard | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ItemToDelete>(null);
   const [selectedDateForModal, setSelectedDateForModal] = useState<Date | null>(null);
   const [paymentJustCompleted, setPaymentJustCompleted] = useState<Payment | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 
   useEffect(() => {
@@ -340,6 +342,7 @@ const App = () => {
                   ? { ...card, lastCutOffProcessed: currentCycle }
                   : card
           ));
+          setHasUnsavedChanges(true);
           window.alert(`Se ha(n) generado ${newPayments.length} nuevo(s) pago(s) de tarjeta de crédito basado en su fecha de corte.`);
         }
     }
@@ -396,12 +399,18 @@ const App = () => {
   }, [payments, isLocked]);
 
   const handleToggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => {
+        const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', newTheme);
+        setHasUnsavedChanges(true);
+        return newTheme;
+    });
   };
 
   const handleSetPin = (newPin: string) => {
     setPin(newPin);
     localStorage.setItem('app_pin', newPin);
+    setHasUnsavedChanges(true);
     setLocked(false);
   };
   
@@ -411,13 +420,92 @@ const App = () => {
   
   const handleLockApp = () => {
     setSettingsOpen(false);
-    setLocked(true);
+    if (hasUnsavedChanges) {
+        setBackupOnLockModalOpen(true);
+    } else {
+        setLocked(true);
+    }
   };
 
   const handleChangePin = (newPin: string) => {
     setPin(newPin);
     localStorage.setItem('app_pin', newPin);
+    setHasUnsavedChanges(true);
   };
+  
+  const handleBackupData = useCallback(() => {
+    try {
+        const backupData = {
+            goals_data: JSON.parse(localStorage.getItem('goals_data') || '[]'),
+            payments_data: JSON.parse(localStorage.getItem('payments_data') || '[]'),
+            wishlist_data: JSON.parse(localStorage.getItem('wishlist_data') || '[]'),
+            credit_cards_data: JSON.parse(localStorage.getItem('credit_cards_data') || '[]'),
+            app_pin: localStorage.getItem('app_pin'),
+            theme: localStorage.getItem('theme'),
+        };
+
+        const jsonString = JSON.stringify(backupData, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const date = new Date().toISOString().split('T')[0];
+        a.href = url;
+        a.download = `meta-ahorro-backup-${date}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        setHasUnsavedChanges(false);
+        window.alert('¡Respaldo creado exitosamente!');
+    } catch (error) {
+        console.error('Error creating backup:', error);
+        window.alert('Ocurrió un error al crear el respaldo.');
+    }
+  }, []);
+
+  const handleRestoreData = useCallback(() => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = (event) => {
+          const file = (event.target as HTMLInputElement).files?.[0];
+          if (!file) return;
+
+          const reader = new FileReader();
+          reader.onload = (e) => {
+              try {
+                  const text = e.target?.result;
+                  if (typeof text !== 'string') {
+                      throw new Error('Contenido de archivo inválido.');
+                  }
+                  const data = JSON.parse(text);
+
+                  const requiredKeys = ['goals_data', 'payments_data', 'wishlist_data', 'credit_cards_data', 'app_pin', 'theme'];
+                  const hasAllKeys = requiredKeys.every(key => key in data);
+
+                  if (!hasAllKeys) {
+                      throw new Error('El archivo de respaldo es inválido o está corrupto.');
+                  }
+                  
+                  localStorage.setItem('goals_data', JSON.stringify(data.goals_data || []));
+                  localStorage.setItem('payments_data', JSON.stringify(data.payments_data || []));
+                  localStorage.setItem('wishlist_data', JSON.stringify(data.wishlist_data || []));
+                  localStorage.setItem('credit_cards_data', JSON.stringify(data.credit_cards_data || []));
+                  if (data.app_pin) localStorage.setItem('app_pin', data.app_pin); else localStorage.removeItem('app_pin');
+                  if (data.theme) localStorage.setItem('theme', data.theme); else localStorage.removeItem('theme');
+
+                  setRestoreAlertOpen(true);
+
+              } catch (error) {
+                  console.error('Error al restaurar:', error);
+                  window.alert(error instanceof Error ? error.message : 'Ocurrió un error al restaurar los datos.');
+              }
+          };
+          reader.readAsText(file);
+      };
+      input.click();
+  }, []);
   
   const sortedGoals = useMemo(() => {
     return [...goals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -618,6 +706,7 @@ const App = () => {
         return [newGoal, ...prev];
       });
     }
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditGoal = useCallback((goal: SavingsGoal) => {
@@ -633,6 +722,7 @@ const App = () => {
   const handleSaveProjection = useCallback((projectionData: { amount: number; frequency: Frequency, targetDate: string, goalId: string }) => {
     const { goalId, ...projection } = projectionData;
     setGoals(prevGoals => prevGoals.map(g => g.id === goalId ? { ...g, projection } : g));
+    setHasUnsavedChanges(true);
   }, []);
 
   const openProjectionModal = useCallback((goal: SavingsGoal) => {
@@ -717,6 +807,7 @@ const App = () => {
 
         return newGoals;
     });
+    setHasUnsavedChanges(true);
   }, [formatDateToInput]);
   
   const handleSavePayment = useCallback((paymentData: Omit<Payment, 'paidAmount' | 'color' | 'creditCardId'> & { id?: string }) => {
@@ -740,6 +831,7 @@ const App = () => {
         return [newPayment, ...currentPayments];
       });
     }
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditPayment = useCallback((payment: Payment) => {
@@ -848,6 +940,7 @@ const App = () => {
 
         return newPayments;
     });
+    setHasUnsavedChanges(true);
   }, [formatDateToInput]);
 
   const handleSaveWishlistItem = useCallback((itemData: Omit<WishlistItem, 'id'> & { id?: string }) => {
@@ -856,6 +949,7 @@ const App = () => {
     } else { // Creating
         setWishlist(prev => [{ id: crypto.randomUUID(), ...itemData }, ...prev]);
     }
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditWishlistItem = useCallback((item: WishlistItem) => {
@@ -881,6 +975,7 @@ const App = () => {
       };
       setGoals(prev => [newGoal, ...prev]);
       setWishlist(prev => prev.filter(w => w.id !== item.id));
+      setHasUnsavedChanges(true);
       setActiveTab('goals');
   }, [goals]);
   
@@ -897,6 +992,7 @@ const App = () => {
         return [newCard, ...prev];
       });
     }
+    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditCard = useCallback((card: CreditCard) => {
@@ -909,43 +1005,19 @@ const App = () => {
     setConfirmModalOpen(true);
   }, []);
 
-  const handleOpenAddPurchase = useCallback((card: CreditCard) => {
-    setCardForTransaction(card);
-    setAddPurchaseModalOpen(true);
-  }, []);
-
-  const handleOpenMakeCardPayment = useCallback((card: CreditCard) => {
-    setCardForTransaction(card);
-    setMakeCardPaymentModalOpen(true);
+  const handleOpenUpdateBalance = useCallback((card: CreditCard) => {
+    setCardToUpdateBalance(card);
+    setUpdateBalanceModalOpen(true);
   }, []);
   
-  const handleAddPurchase = useCallback((amount: number) => {
-    if (!cardForTransaction) return;
-    const roundedAmount = Math.round(amount * 100) / 100;
-    setCreditCards(prev => prev.map(c =>
-        c.id === cardForTransaction.id
-            ? { ...c, currentBalance: Math.round((c.currentBalance + roundedAmount) * 100) / 100 }
-            : c
+  const handleUpdateBalance = useCallback((newBalance: number) => {
+    if (!cardToUpdateBalance) return;
+    const roundedBalance = Math.round(newBalance * 100) / 100;
+    setCreditCards(prev => prev.map(c => 
+      c.id === cardToUpdateBalance.id ? { ...c, currentBalance: roundedBalance } : c
     ));
-  }, [cardForTransaction]);
-
-  const handleMakeCardPayment = useCallback((amount: number) => {
-    if (!cardForTransaction) return;
-    const cardId = cardForTransaction.id;
-    const roundedAmount = Math.round(amount * 100) / 100;
-
-    const associatedPayment = payments.find(p => p.creditCardId === cardId && (p.amount - p.paidAmount) > 0.001);
-
-    if (associatedPayment) {
-        handleSavePaymentContribution({ amount: roundedAmount, paymentId: associatedPayment.id });
-    } else {
-        setCreditCards(prev => prev.map(c =>
-            c.id === cardId
-                ? { ...c, currentBalance: Math.max(0, Math.round((c.currentBalance - roundedAmount) * 100) / 100) }
-                : c
-        ));
-    }
-  }, [cardForTransaction, payments, handleSavePaymentContribution]);
+    setHasUnsavedChanges(true);
+  }, [cardToUpdateBalance]);
 
 
   const handleConfirmDelete = useCallback(() => {
@@ -961,7 +1033,7 @@ const App = () => {
       setCreditCards(prevCards => prevCards.filter(c => c.id !== itemToDelete.id));
     }
 
-
+    setHasUnsavedChanges(true);
     setConfirmModalOpen(false);
     setItemToDelete(null);
   }, [itemToDelete]);
@@ -990,8 +1062,7 @@ const App = () => {
   const handleCloseDayActionModal = useCallback(() => { setDayActionModalOpen(false); setSelectedDateForModal(null); }, []);
   const handleCloseWishlistModal = useCallback(() => { setWishlistModalOpen(false); setWishlistItemToEdit(null); }, []);
   const handleCloseCreditCardModal = useCallback(() => { setCreditCardModalOpen(false); setCardToEdit(null); }, []);
-  const handleCloseAddPurchaseModal = useCallback(() => { setAddPurchaseModalOpen(false); setCardForTransaction(null); }, []);
-  const handleCloseMakeCardPaymentModal = useCallback(() => { setMakeCardPaymentModalOpen(false); setCardForTransaction(null); }, []);
+  const handleCloseUpdateBalanceModal = useCallback(() => { setUpdateBalanceModalOpen(false); setCardToUpdateBalance(null); }, []);
   const handleClosePaymentCompletedModal = useCallback(() => { setPaymentJustCompleted(null); }, []);
 
   if (isLocked || !pin) {
@@ -1213,7 +1284,7 @@ const App = () => {
             sortedCreditCards.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {sortedCreditCards.map(card => (
-                        <CreditCardCard key={card.id} card={card} onEdit={handleOpenEditCard} onDelete={handleDeleteCard} onAddPurchase={handleOpenAddPurchase} onMakePayment={handleOpenMakeCardPayment} />
+                        <CreditCardCard key={card.id} card={card} onEdit={handleOpenEditCard} onDelete={handleDeleteCard} onUpdateBalance={handleOpenUpdateBalance} />
                     ))}
                 </div>
             ) : (
@@ -1311,10 +1382,18 @@ const App = () => {
       <PaymentContributionModal isOpen={isPaymentContributionModalOpen} onClose={handleClosePaymentContributionModal} onSave={handleSavePaymentContribution} payment={paymentToContribute} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={handleClosePaymentModal} onSave={handleSavePayment} paymentToEdit={paymentToEdit} defaultDate={selectedDateForModal}/>
       <CreditCardModal isOpen={isCreditCardModalOpen} onClose={handleCloseCreditCardModal} onSave={handleSaveCreditCard} cardToEdit={cardToEdit} />
-      <AddPurchaseModal isOpen={isAddPurchaseModalOpen} onClose={handleCloseAddPurchaseModal} onSave={handleAddPurchase} card={cardForTransaction} />
-      <MakeCardPaymentModal isOpen={isMakeCardPaymentModalOpen} onClose={handleCloseMakeCardPaymentModal} onSave={handleMakeCardPayment} card={cardForTransaction} />
+      <UpdateBalanceModal isOpen={isUpdateBalanceModalOpen} onClose={handleCloseUpdateBalanceModal} onSave={handleUpdateBalance} card={cardToUpdateBalance} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={handleCloseConfirmModal} onConfirm={handleConfirmDelete} title="Confirmar Eliminación" message="¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer." />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setSettingsOpen(false)} onToggleTheme={handleToggleTheme} onChangePin={() => { setSettingsOpen(false); setChangePinOpen(true); }} onLock={handleLockApp} theme={theme}/>
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setSettingsOpen(false)} 
+        onToggleTheme={handleToggleTheme} 
+        onChangePin={() => { setSettingsOpen(false); setChangePinOpen(true); }} 
+        onLock={handleLockApp} 
+        theme={theme}
+        onBackup={handleBackupData}
+        onRestore={() => { setSettingsOpen(false); handleRestoreData(); }}
+      />
       {pin && <ChangePinModal isOpen={isChangePinOpen} onClose={() => setChangePinOpen(false)} currentPin={pin} onPinChanged={handleChangePin}/>}
       <DayActionModal 
         isOpen={isDayActionModalOpen} 
@@ -1332,6 +1411,36 @@ const App = () => {
         }}
        />
        <PaymentCompletedModal isOpen={!!paymentJustCompleted} onClose={handleClosePaymentCompletedModal} payment={paymentJustCompleted} />
+       <ConfirmationModal
+            isOpen={isBackupOnLockModalOpen}
+            onClose={() => setBackupOnLockModalOpen(false)}
+            onConfirm={() => {
+                handleBackupData();
+                setBackupOnLockModalOpen(false);
+                setLocked(true);
+            }}
+            title="Cambios sin Respaldar"
+            message="Tienes cambios sin respaldar. ¿Deseas crear un respaldo antes de bloquear la aplicación?"
+            confirmText="Respaldar y Bloquear"
+            confirmButtonClass="bg-emerald-500 hover:bg-emerald-400 text-black"
+            cancelText="Cancelar"
+            alternativeText="Bloquear sin Respaldar"
+            alternativeButtonClass="bg-rose-600 hover:bg-rose-500 text-white"
+            onAlternative={() => {
+                setBackupOnLockModalOpen(false);
+                setLocked(true);
+            }}
+        />
+        <AlertModal
+            isOpen={isRestoreAlertOpen}
+            onClose={() => {
+                setRestoreAlertOpen(false);
+                window.location.reload();
+            }}
+            title="Restauración Completa"
+            message="Tus datos han sido restaurados exitosamente. La aplicación se recargará para aplicar los cambios."
+            buttonText="Entendido y Recargar"
+        />
     </div>
   );
 };

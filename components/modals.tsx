@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode } from 'react';
 import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard } from '../types.ts';
-import { CloseIcon, SunIcon, MoonIcon, LockIcon, PlusIcon, WalletIcon, LaptopIcon, CheckCircle2Icon } from './icons.tsx';
+import { CloseIcon, SunIcon, MoonIcon, LockIcon, PlusIcon, WalletIcon, LaptopIcon, CheckCircle2Icon, DownloadIcon, UploadIcon } from './icons.tsx';
 import { AuthScreen } from './Auth.tsx';
 
 
@@ -620,6 +620,9 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmButtonClass?: string;
+  alternativeText?: string;
+  onAlternative?: () => void;
+  alternativeButtonClass?: string;
 }
 
 export const ConfirmationModal = ({ 
@@ -630,7 +633,10 @@ export const ConfirmationModal = ({
     message, 
     confirmText = 'Eliminar', 
     cancelText = 'Cancelar',
-    confirmButtonClass = 'bg-red-600 hover:bg-red-500 text-white'
+    confirmButtonClass = 'bg-red-600 hover:bg-red-500 text-white',
+    alternativeText,
+    onAlternative,
+    alternativeButtonClass = 'bg-gray-500 hover:bg-gray-600 text-white'
 }: ConfirmationModalProps) => {
   if (!isOpen) return null;
 
@@ -649,6 +655,11 @@ export const ConfirmationModal = ({
                 <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                     {cancelText}
                 </button>
+                {onAlternative && alternativeText && (
+                  <button type="button" onClick={onAlternative} className={`px-4 py-2 rounded-md font-semibold transition-colors ${alternativeButtonClass}`}>
+                      {alternativeText}
+                  </button>
+                )}
                 <button type="button" onClick={onConfirm} className={`px-4 py-2 rounded-md font-semibold transition-colors ${confirmButtonClass}`}>
                     {confirmText}
                 </button>
@@ -665,19 +676,23 @@ interface SettingsModalProps {
     onToggleTheme: () => void;
     onChangePin: () => void;
     onLock: () => void;
+    onBackup: () => void;
+    onRestore: () => void;
     theme: 'light' | 'dark';
 }
 
-export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onLock, theme }: SettingsModalProps) => {
+export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onLock, theme, onBackup, onRestore }: SettingsModalProps) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Ajustes">
             <div className="space-y-4">
+                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2">General</h3>
                 <button onClick={onToggleTheme} className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-900/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <span className="font-semibold text-gray-800 dark:text-gray-200">Cambiar Tema</span>
                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         {theme === 'light' ? <MoonIcon className="w-6 h-6"/> : <SunIcon className="w-6 h-6"/>}
                     </div>
                 </button>
+                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 pt-4">Seguridad</h3>
                 <button onClick={onChangePin} className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-900/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <span className="font-semibold text-gray-800 dark:text-gray-200">Cambiar PIN</span>
                     <span className="text-gray-600 dark:text-gray-400 text-2xl">****</span>
@@ -685,6 +700,15 @@ export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onL
                 <button onClick={onLock} className="w-full flex items-center justify-between p-3 bg-rose-100 dark:bg-rose-900/50 hover:bg-rose-200 dark:hover:bg-rose-800/60 rounded-lg transition-colors">
                     <span className="font-semibold text-rose-800 dark:text-rose-200">Bloquear Aplicación</span>
                     <LockIcon className="w-6 h-6 text-rose-600 dark:text-rose-400"/>
+                </button>
+                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 pt-4">Datos</h3>
+                 <button onClick={onBackup} className="w-full flex items-center justify-between p-3 bg-sky-100 dark:bg-sky-900/50 hover:bg-sky-200 dark:hover:bg-sky-800/60 rounded-lg transition-colors">
+                    <span className="font-semibold text-sky-800 dark:text-sky-200">Hacer Respaldo</span>
+                    <DownloadIcon className="w-6 h-6 text-sky-600 dark:text-sky-400"/>
+                </button>
+                 <button onClick={onRestore} className="w-full flex items-center justify-between p-3 bg-emerald-100 dark:bg-emerald-900/50 hover:bg-emerald-200 dark:hover:bg-emerald-800/60 rounded-lg transition-colors">
+                    <span className="font-semibold text-emerald-800 dark:text-emerald-200">Restaurar Respaldo</span>
+                    <UploadIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>
                 </button>
             </div>
         </Modal>
@@ -879,135 +903,68 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
 };
 
 
-interface AddPurchaseModalProps {
+interface UpdateBalanceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (amount: number) => void;
+  onSave: (newBalance: number) => void;
   card: CreditCard | null;
 }
 
-export const AddPurchaseModal = ({ isOpen, onClose, onSave, card }: AddPurchaseModalProps) => {
-    const [amount, setAmount] = useState<number | string>('');
+export const UpdateBalanceModal = ({ isOpen, onClose, onSave, card }: UpdateBalanceModalProps) => {
+    const [newBalance, setNewBalance] = useState<number | string>('');
     const ringColorClass = getRingColorClass(card?.color);
 
     useEffect(() => {
-        if (isOpen) {
-            setAmount('');
+        if (isOpen && card) {
+            setNewBalance(card.currentBalance);
         }
-    }, [isOpen]);
+    }, [isOpen, card]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const numericAmount = Number(amount);
-        if (numericAmount > 0 && card) {
-            onSave(numericAmount);
+        const numericBalance = Number(newBalance);
+        if (numericBalance >= 0 && card) {
+            onSave(numericBalance);
         }
         onClose();
     };
 
     if (!card) return null;
 
-    const newBalance = card.currentBalance + Number(amount);
+    const availableCredit = card.creditLimit - card.currentBalance;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Añadir Compra a "${card.name}"`}>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa el monto de la nueva compra o cargo a tu tarjeta.</p>
+        <Modal isOpen={isOpen} onClose={onClose} title={`Actualizar Saldo de "${card.name}"`}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa el nuevo saldo actual de tu tarjeta.</p>
             <div className="space-y-2 mb-6 text-sm">
                 <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Saldo Actual:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.currentBalance)}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Límite de Crédito:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.creditLimit)}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Nuevo Saldo:</span>
-                    <span className={`font-semibold ${getTextColorClass(card?.color)}`}>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(newBalance)}</span>
+                    <span className="text-gray-500 dark:text-gray-400">Crédito Disponible:</span>
+                    <span className={`font-semibold ${getTextColorClass('emerald')}`}>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(availableCredit)}</span>
                 </div>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label htmlFor="card-purchase-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto de la Compra (MXN)</label>
+                    <label htmlFor="card-new-balance" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nuevo Saldo Actual (MXN)</label>
                     <input
                         type="number"
-                        id="card-purchase-amount"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        id="card-new-balance"
+                        value={newBalance}
+                        onChange={(e) => setNewBalance(e.target.value)}
                         placeholder="0.00"
                         className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
                         required
-                        min="0.01"
+                        min="0"
                         step="0.01"
+                        max={card.creditLimit}
                     />
                 </div>
                 <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
-                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors ${getButtonColorClass(card?.color)}`}>Añadir Compra</button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
-interface MakeCardPaymentModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (amount: number) => void;
-  card: CreditCard | null;
-}
-
-export const MakeCardPaymentModal = ({ isOpen, onClose, onSave, card }: MakeCardPaymentModalProps) => {
-    const [amount, setAmount] = useState<number | string>('');
-    const ringColorClass = getRingColorClass(card?.color);
-
-    useEffect(() => {
-        if (isOpen) {
-            setAmount('');
-        }
-    }, [isOpen]);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        const numericAmount = Number(amount);
-        if (numericAmount > 0 && card) {
-            onSave(numericAmount);
-        }
-        onClose();
-    };
-
-    if (!card) return null;
-    
-    const remainingBalance = card.currentBalance - Number(amount);
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Abonar a Tarjeta "${card.name}"`}>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa la cantidad que deseas abonar al saldo de tu tarjeta.</p>
-            <div className="space-y-2 mb-6 text-sm">
-                <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Saldo Actual:</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.currentBalance)}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Saldo Restante:</span>
-                    <span className={`font-semibold ${getTextColorClass('emerald')}`}>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(remainingBalance)}</span>
-                </div>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="card-payment-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto a Abonar (MXN)</label>
-                    <input
-                        type="number"
-                        id="card-payment-amount"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        placeholder="0.00"
-                        className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
-                        required
-                        min="0.01"
-                        step="0.01"
-                        max={card.currentBalance}
-                    />
-                </div>
-                <div className="flex justify-end gap-3 pt-4">
-                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
-                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors ${getButtonColorClass(card?.color)}`}>Realizar Abono</button>
+                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors ${getButtonColorClass(card?.color)}`}>Actualizar Saldo</button>
                 </div>
             </form>
         </Modal>
@@ -1045,5 +1002,38 @@ export const PaymentCompletedModal = ({ isOpen, onClose, payment }: PaymentCompl
                 </button>
             </div>
         </Modal>
+    );
+};
+
+interface AlertModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  message: string;
+  buttonText?: string;
+}
+
+export const AlertModal = ({ isOpen, onClose, title, message, buttonText = 'Entendido' }: AlertModalProps) => {
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" role="alertdialog" aria-modal="true">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-300 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+                </div>
+                <div className="p-6">
+                    <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
+                    <div className="flex justify-end">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 rounded-md bg-emerald-500 text-black font-semibold hover:bg-emerald-400 transition-colors"
+                        >
+                            {buttonText}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 };
