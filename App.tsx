@@ -812,6 +812,22 @@ const App = () => {
   const handleSavePaymentContribution = useCallback((data: { amount: number; paymentId: string; }) => {
     const { amount: contributionAmount, paymentId } = data;
 
+    // Handle contributions to "virtual" credit card payments from dashboard
+    if (String(paymentId).startsWith('card-')) {
+        const cardId = paymentId.replace('card-', '');
+        setCreditCards(currentCards =>
+            currentCards.map(card => {
+                if (card.id === cardId) {
+                    const newBalance = Math.max(0, card.currentBalance - contributionAmount);
+                    const roundedBalance = Math.round(newBalance * 100) / 100;
+                    return { ...card, currentBalance: roundedBalance };
+                }
+                return card;
+            })
+        );
+        return; // Early exit, as there's no "Payment" object to update
+    }
+
     setPayments(currentPayments => {
         const paymentIndex = currentPayments.findIndex(p => p.id === paymentId);
         if (paymentIndex === -1) {
@@ -1057,13 +1073,7 @@ const App = () => {
   }, []);
 
   const handleDashboardItemClick = useCallback((item: Payment) => {
-    // Virtual payments for cards have an ID starting with 'card-'
-    if (String(item.id).startsWith('card-')) {
-        setActiveTab('cards');
-    } else {
-        // It's a real payment, open the contribution modal
-        handleOpenPaymentContributionModal(item);
-    }
+    handleOpenPaymentContributionModal(item);
   }, [handleOpenPaymentContributionModal]);
   
   const handleCloseGoalModal = useCallback(() => { setGoalModalOpen(false); setGoalToEdit(null); }, []);
