@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactNode } from 'react';
-import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard } from '../types.ts';
-import { CloseIcon, SunIcon, MoonIcon, LockIcon, PlusIcon, WalletIcon, LaptopIcon, CheckCircle2Icon, DownloadIcon, UploadIcon } from './icons.tsx';
+import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard, TimelessPayment } from '../types.ts';
+import { CloseIcon, SunIcon, MoonIcon, LockIcon, PlusIcon, WalletIcon, LaptopIcon, CheckCircle2Icon } from './icons.tsx';
 import { AuthScreen } from './Auth.tsx';
 
 
@@ -620,9 +620,6 @@ interface ConfirmationModalProps {
   confirmText?: string;
   cancelText?: string;
   confirmButtonClass?: string;
-  alternativeText?: string;
-  onAlternative?: () => void;
-  alternativeButtonClass?: string;
 }
 
 export const ConfirmationModal = ({ 
@@ -633,10 +630,7 @@ export const ConfirmationModal = ({
     message, 
     confirmText = 'Eliminar', 
     cancelText = 'Cancelar',
-    confirmButtonClass = 'bg-red-600 hover:bg-red-500 text-white',
-    alternativeText,
-    onAlternative,
-    alternativeButtonClass = 'bg-gray-500 hover:bg-gray-600 text-white'
+    confirmButtonClass = 'bg-red-600 hover:bg-red-500 text-white'
 }: ConfirmationModalProps) => {
   if (!isOpen) return null;
 
@@ -655,11 +649,6 @@ export const ConfirmationModal = ({
                 <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
                     {cancelText}
                 </button>
-                {onAlternative && alternativeText && (
-                  <button type="button" onClick={onAlternative} className={`px-4 py-2 rounded-md font-semibold transition-colors ${alternativeButtonClass}`}>
-                      {alternativeText}
-                  </button>
-                )}
                 <button type="button" onClick={onConfirm} className={`px-4 py-2 rounded-md font-semibold transition-colors ${confirmButtonClass}`}>
                     {confirmText}
                 </button>
@@ -676,23 +665,19 @@ interface SettingsModalProps {
     onToggleTheme: () => void;
     onChangePin: () => void;
     onLock: () => void;
-    onBackup: () => void;
-    onRestore: () => void;
     theme: 'light' | 'dark';
 }
 
-export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onLock, theme, onBackup, onRestore }: SettingsModalProps) => {
+export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onLock, theme }: SettingsModalProps) => {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Ajustes">
             <div className="space-y-4">
-                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2">General</h3>
                 <button onClick={onToggleTheme} className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-900/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <span className="font-semibold text-gray-800 dark:text-gray-200">Cambiar Tema</span>
                     <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         {theme === 'light' ? <MoonIcon className="w-6 h-6"/> : <SunIcon className="w-6 h-6"/>}
                     </div>
                 </button>
-                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 pt-4">Seguridad</h3>
                 <button onClick={onChangePin} className="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-900/50 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
                     <span className="font-semibold text-gray-800 dark:text-gray-200">Cambiar PIN</span>
                     <span className="text-gray-600 dark:text-gray-400 text-2xl">****</span>
@@ -700,15 +685,6 @@ export const SettingsModal = ({ isOpen, onClose, onToggleTheme, onChangePin, onL
                 <button onClick={onLock} className="w-full flex items-center justify-between p-3 bg-rose-100 dark:bg-rose-900/50 hover:bg-rose-200 dark:hover:bg-rose-800/60 rounded-lg transition-colors">
                     <span className="font-semibold text-rose-800 dark:text-rose-200">Bloquear Aplicación</span>
                     <LockIcon className="w-6 h-6 text-rose-600 dark:text-rose-400"/>
-                </button>
-                <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b border-gray-200 dark:border-gray-700 pb-2 pt-4">Datos</h3>
-                 <button onClick={onBackup} className="w-full flex items-center justify-between p-3 bg-sky-100 dark:bg-sky-900/50 hover:bg-sky-200 dark:hover:bg-sky-800/60 rounded-lg transition-colors">
-                    <span className="font-semibold text-sky-800 dark:text-sky-200">Hacer Respaldo</span>
-                    <DownloadIcon className="w-6 h-6 text-sky-600 dark:text-sky-400"/>
-                </button>
-                 <button onClick={onRestore} className="w-full flex items-center justify-between p-3 bg-emerald-100 dark:bg-emerald-900/50 hover:bg-emerald-200 dark:hover:bg-emerald-800/60 rounded-lg transition-colors">
-                    <span className="font-semibold text-emerald-800 dark:text-emerald-200">Restaurar Respaldo</span>
-                    <UploadIcon className="w-6 h-6 text-emerald-600 dark:text-emerald-400"/>
                 </button>
             </div>
         </Modal>
@@ -1005,35 +981,129 @@ export const PaymentCompletedModal = ({ isOpen, onClose, payment }: PaymentCompl
     );
 };
 
-interface AlertModalProps {
+
+interface TimelessPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  message: string;
-  buttonText?: string;
+  onSave: (payment: Omit<TimelessPayment, 'id' | 'paidAmount' | 'isCompleted' | 'color' | 'createdAt' | 'contributions'> & { id?: string }) => void;
+  itemToEdit?: TimelessPayment | null;
 }
 
-export const AlertModal = ({ isOpen, onClose, title, message, buttonText = 'Entendido' }: AlertModalProps) => {
-    if (!isOpen) return null;
+export const TimelessPaymentModal = ({ isOpen, onClose, onSave, itemToEdit }: TimelessPaymentModalProps) => {
+    const [name, setName] = useState('');
+    const [totalAmount, setTotalAmount] = useState<number | string>(0);
+    
+    useEffect(() => {
+        if (isOpen) {
+            if (itemToEdit) {
+                setName(itemToEdit.name);
+                setTotalAmount(itemToEdit.totalAmount);
+            } else {
+                setName('');
+                setTotalAmount(0);
+            }
+        }
+    }, [itemToEdit, isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave({ 
+            id: itemToEdit?.id,
+            name,
+            totalAmount: Number(totalAmount),
+        });
+        onClose();
+    };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4" role="alertdialog" aria-modal="true">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-md border border-gray-300 dark:border-gray-700" onClick={(e) => e.stopPropagation()}>
-                <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{title}</h2>
+        <Modal isOpen={isOpen} onClose={onClose} title={itemToEdit ? 'Editar Pago' : 'Nuevo Pago sin Vencimiento'}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{itemToEdit ? 'Actualiza los detalles de este pago.' : 'Añade un nuevo pago o fondo de ahorro para llevar un control flexible de tus abonos.'}</p>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="timeless-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre o Descripción</label>
+                    <input type="text" id="timeless-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Préstamo Juan" className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none" required />
                 </div>
-                <div className="p-6">
-                    <p className="text-gray-600 dark:text-gray-300 mb-6">{message}</p>
-                    <div className="flex justify-end">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 rounded-md bg-emerald-500 text-black font-semibold hover:bg-emerald-400 transition-colors"
-                        >
-                            {buttonText}
-                        </button>
-                    </div>
+                <div>
+                    <label htmlFor="timeless-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto Total (MXN)</label>
+                    <input type="number" id="timeless-amount" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none" required min="0.01" step="0.01"/>
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" className="px-4 py-2 rounded-md bg-cyan-500 text-black font-semibold hover:bg-cyan-400 transition-colors">Guardar Pago</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+interface TimelessPaymentContributionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (contribution: { amount: number; paymentId: string; }) => void;
+  payment?: TimelessPayment | null;
+}
+
+export const TimelessPaymentContributionModal = ({ isOpen, onClose, onSave, payment }: TimelessPaymentContributionModalProps) => {
+    const [amount, setAmount] = useState<number | string>('');
+    const ringColorClass = getRingColorClass(payment?.color);
+
+    useEffect(() => {
+        if (isOpen) {
+            setAmount('');
+        }
+    }, [isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const numericAmount = Number(amount);
+        if (numericAmount > 0 && payment) {
+            onSave({ amount: numericAmount, paymentId: payment.id });
+        }
+        onClose();
+    };
+
+    if (!payment) return null;
+
+    const remainingAmount = payment.totalAmount - payment.paidAmount;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Abonar a "${payment.name}"`}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa la cantidad que deseas abonar a este pago.</p>
+            <div className="space-y-2 mb-6 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Monto Abonado:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(payment.paidAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Saldo Restante:</span>
+                    <span className={`font-semibold ${getTextColorClass(payment?.color)}`}>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(remainingAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Monto Total:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(payment.totalAmount)}</span>
                 </div>
             </div>
-        </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="timeless-contrib-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto a abonar (MXN)</label>
+                    <input
+                        type="number"
+                        id="timeless-contrib-amount"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
+                        required
+                        min="0.01"
+                        step="0.01" 
+                        max={remainingAmount}
+                        />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors ${getButtonColorClass(payment?.color)}`}>Guardar Abono</button>
+                </div>
+            </form>
+        </Modal>
     );
 };

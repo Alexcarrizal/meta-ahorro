@@ -61,3 +61,20 @@ export interface CreditCard {
   color: string;
   lastCutOffProcessed?: string; // Format 'YYYY-MM'
 }
+
+export interface TimelessPaymentContribution {
+  id: string;
+  amount: number;
+  date: string;
+}
+
+export interface TimelessPayment {
+  id: string;
+  name: string;
+  totalAmount: number;
+  paidAmount: number;
+  isCompleted: boolean;
+  color: string;
+  createdAt: string;
+  contributions: TimelessPaymentContribution[];
+}

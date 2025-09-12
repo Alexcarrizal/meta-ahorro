@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard } from './types.ts';
-import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, UpdateBalanceModal, PaymentCompletedModal, AlertModal } from './components/modals.tsx';
+import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard, TimelessPayment, TimelessPaymentContribution } from './types.ts';
+import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, UpdateBalanceModal, PaymentCompletedModal, TimelessPaymentModal, TimelessPaymentContributionModal } from './components/modals.tsx';
 import GoalCard from './components/GoalCard.tsx';
 import PaymentCard from './components/PaymentCard.tsx';
 import WishlistCard from './components/WishlistCard.tsx';
 import CreditCardCard from './components/CreditCardCard.tsx';
+import TimelessPaymentCard from './components/TimelessPaymentCard.tsx';
 import CalendarView from './components/CalendarView.tsx';
 import { LayoutDashboardIcon, LaptopIcon, WalletIcon, PlusIcon, CogIcon, CalendarIcon, ClipboardListIcon, AlertTriangleIcon, HistoryIcon, CheckCircle2Icon, ListTodoIcon, PiggyBankIcon, TrendingUpIcon, CreditCardIcon } from './components/icons.tsx';
 import { AuthScreen } from './components/Auth.tsx';
@@ -13,6 +14,7 @@ import { DashboardPaymentItem } from './components/DashboardPaymentItem.tsx';
 const GOAL_COLORS = ['rose', 'sky', 'amber', 'emerald', 'indigo', 'purple'];
 const PAYMENT_COLORS = ['teal', 'cyan', 'blue', 'lime', 'fuchsia', 'pink'];
 const CARD_COLORS = ['purple', 'teal', 'rose', 'fuchsia', 'indigo', 'sky'];
+const TIMELESS_COLORS = ['cyan', 'lime', 'teal', 'blue', 'fuchsia', 'pink'];
 
 const sampleGoals: SavingsGoal[] = [
     {
@@ -136,6 +138,33 @@ const sampleCreditCards: CreditCard[] = [
     }
 ];
 
+const sampleTimelessPayments: TimelessPayment[] = [
+    {
+        id: 'sample-timeless-1',
+        name: 'Préstamo a Juan',
+        totalAmount: 5000,
+        paidAmount: 1500,
+        isCompleted: false,
+        color: 'cyan',
+        createdAt: new Date().toISOString(),
+        contributions: [
+            { id: crypto.randomUUID(), amount: 1000, date: new Date(Date.now() - 86400000 * 10).toISOString() },
+            { id: crypto.randomUUID(), amount: 500, date: new Date(Date.now() - 86400000 * 2).toISOString() }
+        ]
+    },
+    {
+        id: 'sample-timeless-2',
+        name: 'Fondo de Ahorro Oficina',
+        totalAmount: 2400,
+        paidAmount: 2400,
+        isCompleted: true,
+        color: 'lime',
+        createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
+        contributions: [
+             { id: crypto.randomUUID(), amount: 2400, date: new Date(Date.now() - 86400000 * 5).toISOString() }
+        ]
+    }
+];
 
 function getInitialData<T>(key: string, fallback: T[]): T[] {
   try {
@@ -164,9 +193,10 @@ const getInitialPin = (): string | null => {
     return localStorage.getItem('app_pin');
 };
 
-type ActiveTab = 'dashboard' | 'goals' | 'payments' | 'cards' | 'wishlist' | 'calendar';
-type ItemToDelete = { id: string; type: 'goal' | 'payment' | 'wishlist' | 'card' } | null;
+type ActiveTab = 'dashboard' | 'goals' | 'payments' | 'timeless' | 'cards' | 'wishlist' | 'calendar';
+type ItemToDelete = { id: string; type: 'goal' | 'payment' | 'wishlist' | 'card' | 'timeless' } | null;
 type PaymentFilter = 'all_unpaid' | 'urgent' | 'overdue' | 'paid';
+type TimelessPaymentFilter = 'active' | 'completed';
 
 const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
@@ -181,6 +211,7 @@ const App = () => {
   const [goals, setGoals] = useState<SavingsGoal[]>(() => getInitialData('goals_data', sampleGoals));
   const [wishlist, setWishlist] = useState<WishlistItem[]>(() => getInitialData('wishlist_data', sampleWishlist));
   const [creditCards, setCreditCards] = useState<CreditCard[]>(() => getInitialData('credit_cards_data', sampleCreditCards));
+  const [timelessPayments, setTimelessPayments] = useState<TimelessPayment[]>(() => getInitialData('timeless_payments_data', sampleTimelessPayments));
   const [payments, setPayments] = useState<Payment[]>(() => {
     const initialData = getInitialData('payments_data', samplePayments) as any[];
     // Perform one-time migration for items in the old format
@@ -200,6 +231,7 @@ const App = () => {
   });
   
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>('all_unpaid');
+  const [timelessFilter, setTimelessFilter] = useState<TimelessPaymentFilter>('active');
 
   const [isGoalModalOpen, setGoalModalOpen] = useState(false);
   const [isProjectionModalOpen, setProjectionModalOpen] = useState(false);
@@ -214,8 +246,8 @@ const App = () => {
   const [isCreditCardModalOpen, setCreditCardModalOpen] = useState(false);
   const [isUpdateBalanceModalOpen, setUpdateBalanceModalOpen] = useState(false);
   const [isPaymentCompletedModalOpen, setPaymentCompletedModalOpen] = useState(false);
-  const [isRestoreAlertOpen, setRestoreAlertOpen] = useState(false);
-  const [isBackupOnLockModalOpen, setBackupOnLockModalOpen] = useState(false);
+  const [isTimelessPaymentModalOpen, setTimelessPaymentModalOpen] = useState(false);
+  const [isTimelessContributionModalOpen, setTimelessContributionModalOpen] = useState(false);
   
   const [goalToEdit, setGoalToEdit] = useState<SavingsGoal | null>(null);
   const [goalToProject, setGoalToProject] = useState<SavingsGoal | null>(null);
@@ -228,7 +260,8 @@ const App = () => {
   const [itemToDelete, setItemToDelete] = useState<ItemToDelete>(null);
   const [selectedDateForModal, setSelectedDateForModal] = useState<Date | null>(null);
   const [paymentJustCompleted, setPaymentJustCompleted] = useState<Payment | null>(null);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [timelessPaymentToEdit, setTimelessPaymentToEdit] = useState<TimelessPayment | null>(null);
+  const [timelessPaymentToContribute, setTimelessPaymentToContribute] = useState<TimelessPayment | null>(null);
 
 
   useEffect(() => {
@@ -259,6 +292,7 @@ const App = () => {
     sanitizeAndSetData(payments, setPayments, 'payments_data');
     sanitizeAndSetData(wishlist, setWishlist, 'wishlist_data');
     sanitizeAndSetData(creditCards, setCreditCards, 'credit_cards_data');
+    sanitizeAndSetData(timelessPayments, setTimelessPayments, 'timeless_payments_data');
   }, []); // Run only once on mount to clean up data.
 
 
@@ -277,6 +311,10 @@ const App = () => {
   useEffect(() => {
     localStorage.setItem('credit_cards_data', JSON.stringify(creditCards));
   }, [creditCards]);
+  
+  useEffect(() => {
+    localStorage.setItem('timeless_payments_data', JSON.stringify(timelessPayments));
+  }, [timelessPayments]);
 
   useEffect(() => {
     document.documentElement.classList.remove('light', 'dark');
@@ -342,7 +380,6 @@ const App = () => {
                   ? { ...card, lastCutOffProcessed: currentCycle }
                   : card
           ));
-          setHasUnsavedChanges(true);
           window.alert(`Se ha(n) generado ${newPayments.length} nuevo(s) pago(s) de tarjeta de crédito basado en su fecha de corte.`);
         }
     }
@@ -399,18 +436,12 @@ const App = () => {
   }, [payments, isLocked]);
 
   const handleToggleTheme = () => {
-    setTheme(prevTheme => {
-        const newTheme = prevTheme === 'light' ? 'dark' : 'light';
-        localStorage.setItem('theme', newTheme);
-        setHasUnsavedChanges(true);
-        return newTheme;
-    });
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
   const handleSetPin = (newPin: string) => {
     setPin(newPin);
     localStorage.setItem('app_pin', newPin);
-    setHasUnsavedChanges(true);
     setLocked(false);
   };
   
@@ -420,92 +451,13 @@ const App = () => {
   
   const handleLockApp = () => {
     setSettingsOpen(false);
-    if (hasUnsavedChanges) {
-        setBackupOnLockModalOpen(true);
-    } else {
-        setLocked(true);
-    }
+    setLocked(true);
   };
 
   const handleChangePin = (newPin: string) => {
     setPin(newPin);
     localStorage.setItem('app_pin', newPin);
-    setHasUnsavedChanges(true);
   };
-  
-  const handleBackupData = useCallback(() => {
-    try {
-        const backupData = {
-            goals_data: JSON.parse(localStorage.getItem('goals_data') || '[]'),
-            payments_data: JSON.parse(localStorage.getItem('payments_data') || '[]'),
-            wishlist_data: JSON.parse(localStorage.getItem('wishlist_data') || '[]'),
-            credit_cards_data: JSON.parse(localStorage.getItem('credit_cards_data') || '[]'),
-            app_pin: localStorage.getItem('app_pin'),
-            theme: localStorage.getItem('theme'),
-        };
-
-        const jsonString = JSON.stringify(backupData, null, 2);
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        const date = new Date().toISOString().split('T')[0];
-        a.href = url;
-        a.download = `meta-ahorro-backup-${date}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        setHasUnsavedChanges(false);
-        window.alert('¡Respaldo creado exitosamente!');
-    } catch (error) {
-        console.error('Error creating backup:', error);
-        window.alert('Ocurrió un error al crear el respaldo.');
-    }
-  }, []);
-
-  const handleRestoreData = useCallback(() => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-      input.onchange = (event) => {
-          const file = (event.target as HTMLInputElement).files?.[0];
-          if (!file) return;
-
-          const reader = new FileReader();
-          reader.onload = (e) => {
-              try {
-                  const text = e.target?.result;
-                  if (typeof text !== 'string') {
-                      throw new Error('Contenido de archivo inválido.');
-                  }
-                  const data = JSON.parse(text);
-
-                  const requiredKeys = ['goals_data', 'payments_data', 'wishlist_data', 'credit_cards_data', 'app_pin', 'theme'];
-                  const hasAllKeys = requiredKeys.every(key => key in data);
-
-                  if (!hasAllKeys) {
-                      throw new Error('El archivo de respaldo es inválido o está corrupto.');
-                  }
-                  
-                  localStorage.setItem('goals_data', JSON.stringify(data.goals_data || []));
-                  localStorage.setItem('payments_data', JSON.stringify(data.payments_data || []));
-                  localStorage.setItem('wishlist_data', JSON.stringify(data.wishlist_data || []));
-                  localStorage.setItem('credit_cards_data', JSON.stringify(data.credit_cards_data || []));
-                  if (data.app_pin) localStorage.setItem('app_pin', data.app_pin); else localStorage.removeItem('app_pin');
-                  if (data.theme) localStorage.setItem('theme', data.theme); else localStorage.removeItem('theme');
-
-                  setRestoreAlertOpen(true);
-
-              } catch (error) {
-                  console.error('Error al restaurar:', error);
-                  window.alert(error instanceof Error ? error.message : 'Ocurrió un error al restaurar los datos.');
-              }
-          };
-          reader.readAsText(file);
-      };
-      input.click();
-  }, []);
   
   const sortedGoals = useMemo(() => {
     return [...goals].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -690,6 +642,18 @@ const App = () => {
       .sort(([catA], [catB]) => catA.localeCompare(catB))
       .map(([category, items]) => ({ category, items }));
   }, [filteredPayments]);
+  
+  const filteredTimelessPayments = useMemo(() => {
+    return timelessPayments.filter(p => {
+        if (timelessFilter === 'active') return !p.isCompleted;
+        if (timelessFilter === 'completed') return p.isCompleted;
+        return true;
+    }).sort((a, b) => {
+      if (a.isCompleted && !b.isCompleted) return 1;
+      if (!a.isCompleted && b.isCompleted) return -1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    });
+  }, [timelessPayments, timelessFilter]);
 
   const handleSaveGoal = useCallback((goalData: Omit<SavingsGoal, 'savedAmount' | 'createdAt' | 'projection' | 'color'> & { id?: string }) => {
     if (goalData.id) { // Editing
@@ -706,7 +670,6 @@ const App = () => {
         return [newGoal, ...prev];
       });
     }
-    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditGoal = useCallback((goal: SavingsGoal) => {
@@ -722,7 +685,6 @@ const App = () => {
   const handleSaveProjection = useCallback((projectionData: { amount: number; frequency: Frequency, targetDate: string, goalId: string }) => {
     const { goalId, ...projection } = projectionData;
     setGoals(prevGoals => prevGoals.map(g => g.id === goalId ? { ...g, projection } : g));
-    setHasUnsavedChanges(true);
   }, []);
 
   const openProjectionModal = useCallback((goal: SavingsGoal) => {
@@ -807,7 +769,6 @@ const App = () => {
 
         return newGoals;
     });
-    setHasUnsavedChanges(true);
   }, [formatDateToInput]);
   
   const handleSavePayment = useCallback((paymentData: Omit<Payment, 'paidAmount' | 'color' | 'creditCardId'> & { id?: string }) => {
@@ -831,7 +792,6 @@ const App = () => {
         return [newPayment, ...currentPayments];
       });
     }
-    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditPayment = useCallback((payment: Payment) => {
@@ -940,7 +900,6 @@ const App = () => {
 
         return newPayments;
     });
-    setHasUnsavedChanges(true);
   }, [formatDateToInput]);
 
   const handleSaveWishlistItem = useCallback((itemData: Omit<WishlistItem, 'id'> & { id?: string }) => {
@@ -949,7 +908,6 @@ const App = () => {
     } else { // Creating
         setWishlist(prev => [{ id: crypto.randomUUID(), ...itemData }, ...prev]);
     }
-    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditWishlistItem = useCallback((item: WishlistItem) => {
@@ -975,7 +933,6 @@ const App = () => {
       };
       setGoals(prev => [newGoal, ...prev]);
       setWishlist(prev => prev.filter(w => w.id !== item.id));
-      setHasUnsavedChanges(true);
       setActiveTab('goals');
   }, [goals]);
   
@@ -992,7 +949,6 @@ const App = () => {
         return [newCard, ...prev];
       });
     }
-    setHasUnsavedChanges(true);
   }, []);
 
   const handleOpenEditCard = useCallback((card: CreditCard) => {
@@ -1016,24 +972,81 @@ const App = () => {
     setCreditCards(prev => prev.map(c => 
       c.id === cardToUpdateBalance.id ? { ...c, currentBalance: roundedBalance } : c
     ));
-    setHasUnsavedChanges(true);
   }, [cardToUpdateBalance]);
 
+  const handleSaveTimelessPayment = useCallback((paymentData: Omit<TimelessPayment, 'id' | 'paidAmount' | 'isCompleted' | 'color' | 'createdAt' | 'contributions'> & { id?: string }) => {
+    if (paymentData.id) { // Editing
+      setTimelessPayments(prev => prev.map(p => p.id === paymentData.id ? { ...p, ...paymentData } : p));
+    } else { // Creating
+      setTimelessPayments(prev => {
+        const newPayment: TimelessPayment = {
+          id: crypto.randomUUID(),
+          paidAmount: 0,
+          isCompleted: false,
+          createdAt: new Date().toISOString(),
+          contributions: [],
+          color: TIMELESS_COLORS[prev.length % TIMELESS_COLORS.length],
+          ...paymentData,
+        };
+        return [newPayment, ...prev];
+      });
+    }
+  }, []);
+
+  const handleOpenEditTimelessPayment = useCallback((payment: TimelessPayment) => {
+    setTimelessPaymentToEdit(payment);
+    setTimelessPaymentModalOpen(true);
+  }, []);
+
+  const handleDeleteTimelessPayment = useCallback((id: string) => {
+    setItemToDelete({ id, type: 'timeless' });
+    setConfirmModalOpen(true);
+  }, []);
+
+  const handleOpenTimelessContributionModal = useCallback((payment: TimelessPayment) => {
+    setTimelessPaymentToContribute(payment);
+    setTimelessContributionModalOpen(true);
+  }, []);
+
+  const handleSaveTimelessContribution = useCallback((data: { amount: number; paymentId: string; }) => {
+    const { amount: contributionAmount, paymentId } = data;
+    setTimelessPayments(prev => prev.map(p => {
+      if (p.id === paymentId) {
+        const newPaidAmount = p.paidAmount + contributionAmount;
+        const roundedPaidAmount = Math.round(newPaidAmount * 100) / 100;
+        const newContribution: TimelessPaymentContribution = {
+          id: crypto.randomUUID(),
+          amount: contributionAmount,
+          date: new Date().toISOString(),
+        };
+        const isCompleted = roundedPaidAmount >= p.totalAmount;
+        return {
+          ...p,
+          paidAmount: isCompleted ? p.totalAmount : roundedPaidAmount,
+          isCompleted,
+          contributions: [...p.contributions, newContribution]
+        };
+      }
+      return p;
+    }));
+  }, []);
 
   const handleConfirmDelete = useCallback(() => {
     if (!itemToDelete) return;
 
     if (itemToDelete.type === 'goal') {
-      setGoals(prevGoals => prevGoals.filter(g => g.id !== itemToDelete.id));
+      setGoals(prev => prev.filter(g => g.id !== itemToDelete.id));
     } else if (itemToDelete.type === 'payment') {
-      setPayments(prevPayments => prevPayments.filter(p => p.id !== itemToDelete.id));
+      setPayments(prev => prev.filter(p => p.id !== itemToDelete.id));
     } else if (itemToDelete.type === 'wishlist') {
-      setWishlist(prevWishlist => prevWishlist.filter(w => w.id !== itemToDelete.id));
+      setWishlist(prev => prev.filter(w => w.id !== itemToDelete.id));
     } else if (itemToDelete.type === 'card') {
-      setCreditCards(prevCards => prevCards.filter(c => c.id !== itemToDelete.id));
+      setCreditCards(prev => prev.filter(c => c.id !== itemToDelete.id));
+    } else if (itemToDelete.type === 'timeless') {
+      setTimelessPayments(prev => prev.filter(p => p.id !== itemToDelete.id));
     }
 
-    setHasUnsavedChanges(true);
+
     setConfirmModalOpen(false);
     setItemToDelete(null);
   }, [itemToDelete]);
@@ -1064,6 +1077,9 @@ const App = () => {
   const handleCloseCreditCardModal = useCallback(() => { setCreditCardModalOpen(false); setCardToEdit(null); }, []);
   const handleCloseUpdateBalanceModal = useCallback(() => { setUpdateBalanceModalOpen(false); setCardToUpdateBalance(null); }, []);
   const handleClosePaymentCompletedModal = useCallback(() => { setPaymentJustCompleted(null); }, []);
+  const handleCloseTimelessPaymentModal = useCallback(() => { setTimelessPaymentModalOpen(false); setTimelessPaymentToEdit(null); }, []);
+  const handleCloseTimelessContributionModal = useCallback(() => { setTimelessContributionModalOpen(false); setTimelessPaymentToContribute(null); }, []);
+
 
   if (isLocked || !pin) {
     return <AuthScreen hasPin={!!pin} onSetPin={handleSetPin} onUnlockSuccess={handleUnlockSuccess} storedPin={pin} />
@@ -1087,6 +1103,8 @@ const App = () => {
             return { title: 'Mis Metas de Compra', buttonText: 'Nueva Meta', buttonClass: 'bg-emerald-500 hover:bg-emerald-400', onClick: () => { setGoalToEdit(null); setGoalModalOpen(true); } };
         case 'payments':
             return { title: 'Mis Pagos Programados', buttonText: 'Nuevo Pago', buttonClass: 'bg-sky-500 hover:bg-sky-400', onClick: () => { setPaymentToEdit(null); setPaymentModalOpen(true); } };
+        case 'timeless':
+             return { title: 'Pagos sin Vencimiento', buttonText: 'Nuevo Pago', buttonClass: 'bg-cyan-500 hover:bg-cyan-400', onClick: () => { setTimelessPaymentToEdit(null); setTimelessPaymentModalOpen(true); } };
         case 'cards':
             return { title: 'Mis Tarjetas de Crédito', buttonText: 'Nueva Tarjeta', buttonClass: 'bg-purple-500 hover:bg-purple-600 text-white', onClick: () => { setCardToEdit(null); setCreditCardModalOpen(true); } };
         case 'wishlist':
@@ -1176,6 +1194,7 @@ const App = () => {
         <div className="flex border-b border-gray-200 dark:border-gray-800 overflow-x-auto">
           <TabButton id="dashboard" label="Dashboard" icon={<LayoutDashboardIcon className="w-5 h-5"/>} active={activeTab === 'dashboard'} colorClass="border-violet-500" />
           <TabButton id="payments" label="Pagos" icon={<WalletIcon className="w-5 h-5"/>} active={activeTab === 'payments'} colorClass="border-sky-500" />
+          <TabButton id="timeless" label="Sin Vencimiento" icon={<TrendingUpIcon className="w-5 h-5"/>} active={activeTab === 'timeless'} colorClass="border-cyan-500" />
           <TabButton id="cards" label="Tarjetas" icon={<CreditCardIcon className="w-5 h-5"/>} active={activeTab === 'cards'} colorClass="border-purple-500" />
           <TabButton id="goals" label="Metas" icon={<LaptopIcon className="w-5 h-5"/>} active={activeTab === 'goals'} colorClass="border-emerald-500" />
           <TabButton id="wishlist" label="Deseos" icon={<ClipboardListIcon className="w-5 h-5"/>} active={activeTab === 'wishlist'} colorClass="border-indigo-500" />
@@ -1280,6 +1299,45 @@ const App = () => {
           
           {activeTab === 'payments' && <PaymentFilterControls />}
           
+          {activeTab === 'timeless' && (
+            <>
+              <div className="mb-6 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-lg flex flex-wrap justify-center items-center gap-2">
+                {(['active', 'completed'] as TimelessPaymentFilter[]).map(filter => {
+                  const isActive = timelessFilter === filter;
+                  return (
+                    <button
+                      key={filter}
+                      onClick={() => setTimelessFilter(filter)}
+                      className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 ${
+                        isActive
+                          ? 'bg-white dark:bg-gray-900 shadow text-cyan-600 dark:text-cyan-400'
+                          : 'bg-transparent text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      {filter === 'active' ? <ListTodoIcon className="w-5 h-5"/> : <CheckCircle2Icon className="w-5 h-5" />}
+                      {filter === 'active' ? 'Activos' : 'Completados'}
+                    </button>
+                  )
+                })}
+              </div>
+              {filteredTimelessPayments.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredTimelessPayments.map(payment => (
+                        <TimelessPaymentCard key={payment.id} payment={payment} onEdit={handleOpenEditTimelessPayment} onDelete={handleDeleteTimelessPayment} onContribute={handleOpenTimelessContributionModal} />
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700">
+                    <TrendingUpIcon className="mx-auto w-12 h-12 text-gray-400 dark:text-gray-500 mb-4"/>
+                    <h3 className="text-xl font-semibold text-gray-800 dark:text-white">No tienes pagos de este tipo</h3>
+                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                      {timelessFilter === 'active' ? '¡Añade tu primer pago para empezar a registrar abonos!' : 'Aún no has liquidado ningún pago de este tipo.'}
+                    </p>
+                </div>
+              )}
+            </>
+          )}
+
           {activeTab === 'cards' && (
             sortedCreditCards.length > 0 ? (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1383,17 +1441,10 @@ const App = () => {
       <PaymentModal isOpen={isPaymentModalOpen} onClose={handleClosePaymentModal} onSave={handleSavePayment} paymentToEdit={paymentToEdit} defaultDate={selectedDateForModal}/>
       <CreditCardModal isOpen={isCreditCardModalOpen} onClose={handleCloseCreditCardModal} onSave={handleSaveCreditCard} cardToEdit={cardToEdit} />
       <UpdateBalanceModal isOpen={isUpdateBalanceModalOpen} onClose={handleCloseUpdateBalanceModal} onSave={handleUpdateBalance} card={cardToUpdateBalance} />
+      <TimelessPaymentModal isOpen={isTimelessPaymentModalOpen} onClose={handleCloseTimelessPaymentModal} onSave={handleSaveTimelessPayment} itemToEdit={timelessPaymentToEdit} />
+      <TimelessPaymentContributionModal isOpen={isTimelessContributionModalOpen} onClose={handleCloseTimelessContributionModal} onSave={handleSaveTimelessContribution} payment={timelessPaymentToContribute} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={handleCloseConfirmModal} onConfirm={handleConfirmDelete} title="Confirmar Eliminación" message="¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer." />
-      <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-        onToggleTheme={handleToggleTheme} 
-        onChangePin={() => { setSettingsOpen(false); setChangePinOpen(true); }} 
-        onLock={handleLockApp} 
-        theme={theme}
-        onBackup={handleBackupData}
-        onRestore={() => { setSettingsOpen(false); handleRestoreData(); }}
-      />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setSettingsOpen(false)} onToggleTheme={handleToggleTheme} onChangePin={() => { setSettingsOpen(false); setChangePinOpen(true); }} onLock={handleLockApp} theme={theme}/>
       {pin && <ChangePinModal isOpen={isChangePinOpen} onClose={() => setChangePinOpen(false)} currentPin={pin} onPinChanged={handleChangePin}/>}
       <DayActionModal 
         isOpen={isDayActionModalOpen} 
@@ -1411,36 +1462,6 @@ const App = () => {
         }}
        />
        <PaymentCompletedModal isOpen={!!paymentJustCompleted} onClose={handleClosePaymentCompletedModal} payment={paymentJustCompleted} />
-       <ConfirmationModal
-            isOpen={isBackupOnLockModalOpen}
-            onClose={() => setBackupOnLockModalOpen(false)}
-            onConfirm={() => {
-                handleBackupData();
-                setBackupOnLockModalOpen(false);
-                setLocked(true);
-            }}
-            title="Cambios sin Respaldar"
-            message="Tienes cambios sin respaldar. ¿Deseas crear un respaldo antes de bloquear la aplicación?"
-            confirmText="Respaldar y Bloquear"
-            confirmButtonClass="bg-emerald-500 hover:bg-emerald-400 text-black"
-            cancelText="Cancelar"
-            alternativeText="Bloquear sin Respaldar"
-            alternativeButtonClass="bg-rose-600 hover:bg-rose-500 text-white"
-            onAlternative={() => {
-                setBackupOnLockModalOpen(false);
-                setLocked(true);
-            }}
-        />
-        <AlertModal
-            isOpen={isRestoreAlertOpen}
-            onClose={() => {
-                setRestoreAlertOpen(false);
-                window.location.reload();
-            }}
-            title="Restauración Completa"
-            message="Tus datos han sido restaurados exitosamente. La aplicación se recargará para aplicar los cambios."
-            buttonText="Entendido y Recargar"
-        />
     </div>
   );
 };
