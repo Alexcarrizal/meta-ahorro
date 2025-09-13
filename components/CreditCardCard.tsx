@@ -6,6 +6,7 @@ interface CreditCardCardProps {
     card: CreditCard;
     onEdit: (card: CreditCard) => void;
     onDelete: (id: string) => void;
+    onUpdateBalance: (card: CreditCard) => void;
     onAddPurchase: (card: CreditCard) => void;
     onMakePayment: (card: CreditCard) => void;
 }
@@ -29,7 +30,7 @@ const getCardColorStyles = (color: string) => {
     return colorMap[color] || colorMap.purple;
 };
 
-const CreditCardCard = ({ card, onEdit, onDelete, onAddPurchase, onMakePayment }: CreditCardCardProps) => {
+const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance, onAddPurchase, onMakePayment }: CreditCardCardProps) => {
     const { id, name, creditLimit, currentBalance, cutOffDay, paymentDueDateDay, color } = card;
     const availableCredit = creditLimit - currentBalance;
     const usagePercentage = creditLimit > 0 ? (currentBalance / creditLimit) * 100 : 0;
@@ -90,6 +91,7 @@ const CreditCardCard = ({ card, onEdit, onDelete, onAddPurchase, onMakePayment }
                         {isMenuOpen && (
                             <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-md shadow-lg z-10">
                                 <button onClick={() => { onEdit(card); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer rounded-t-md">Editar Tarjeta</button>
+                                <button onClick={() => { onUpdateBalance(card); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer">Actualizar Saldo</button>
                                 <button onClick={() => { onDelete(id); setMenuOpen(false); }} className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-500/10 cursor-pointer rounded-b-md">Eliminar Tarjeta</button>
                             </div>
                         )}
@@ -124,13 +126,13 @@ const CreditCardCard = ({ card, onEdit, onDelete, onAddPurchase, onMakePayment }
             </div>
 
             <div className="mt-auto grid grid-cols-2 gap-3">
-                <button onClick={() => onAddPurchase(card)} className="w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-white/10 hover:bg-white/20">
+                <button onClick={() => onAddPurchase(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors ${styles.button}`}>
                     <PlusIcon className="w-5 h-5"/>
-                    Compras
+                    Compra
                 </button>
-                <button disabled={isPaid} onClick={() => onMakePayment(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors ${styles.button} disabled:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed`}>
+                <button onClick={() => onMakePayment(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-emerald-500 hover:bg-emerald-600 text-white`}>
                     <WalletIcon className="w-5 h-5"/>
-                    Abonos
+                    Abono
                 </button>
             </div>
         </div>

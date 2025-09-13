@@ -1107,3 +1107,133 @@ export const TimelessPaymentContributionModal = ({ isOpen, onClose, onSave, paym
         </Modal>
     );
 };
+
+interface AddPurchaseModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (purchaseAmount: number) => void;
+  card: CreditCard | null;
+}
+
+export const AddPurchaseModal = ({ isOpen, onClose, onSave, card }: AddPurchaseModalProps) => {
+    const [amount, setAmount] = useState<number | string>('');
+    const ringColorClass = getRingColorClass(card?.color);
+
+    useEffect(() => {
+        if (isOpen) {
+            setAmount('');
+        }
+    }, [isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const numericAmount = Number(amount);
+        if (numericAmount > 0 && card) {
+            onSave(numericAmount);
+        }
+        onClose();
+    };
+
+    if (!card) return null;
+
+    const availableCredit = card.creditLimit - card.currentBalance;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Registrar Compra en "${card.name}"`}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa el monto de la nueva compra realizada con esta tarjeta.</p>
+            <div className="space-y-2 mb-6 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Saldo Actual:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.currentBalance)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Crédito Disponible:</span>
+                    <span className={`font-semibold ${getTextColorClass('emerald')}`}>{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(availableCredit)}</span>
+                </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="card-purchase-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto de la Compra (MXN)</label>
+                    <input
+                        type="number"
+                        id="card-purchase-amount"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
+                        required
+                        min="0.01"
+                        step="0.01"
+                        max={availableCredit}
+                    />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors ${getButtonColorClass(card?.color)}`}>Registrar Compra</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+interface MakeCardPaymentModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (paymentAmount: number) => void;
+  card: CreditCard | null;
+}
+
+export const MakeCardPaymentModal = ({ isOpen, onClose, onSave, card }: MakeCardPaymentModalProps) => {
+    const [amount, setAmount] = useState<number | string>('');
+    const ringColorClass = getRingColorClass(card?.color);
+
+    useEffect(() => {
+        if (isOpen) {
+            setAmount('');
+        }
+    }, [isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const numericAmount = Number(amount);
+        if (numericAmount > 0 && card) {
+            onSave(numericAmount);
+        }
+        onClose();
+    };
+
+    if (!card) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Abonar a "${card.name}"`}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Ingresa la cantidad que deseas abonar al saldo de tu tarjeta.</p>
+            <div className="space-y-2 mb-6 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Saldo Actual a Pagar:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.currentBalance)}</span>
+                </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="card-payment-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto del Abono (MXN)</label>
+                    <input
+                        type="number"
+                        id="card-payment-amount"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
+                        required
+                        min="0.01"
+                        step="0.01"
+                        max={card.currentBalance}
+                    />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors bg-emerald-500 hover:bg-emerald-600 text-white`}>Realizar Abono</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
