@@ -56,6 +56,7 @@ export interface CreditCard {
   name: string;
   creditLimit: number;
   currentBalance: number;
+  paymentForNoInterest?: number;
   cutOffDay: number; // Day of the month (1-31)
   paymentDueDateDay: number; // Day of the month (1-31)
   color: string;

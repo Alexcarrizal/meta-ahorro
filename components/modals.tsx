@@ -807,6 +807,7 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
     const [name, setName] = useState('');
     const [creditLimit, setCreditLimit] = useState<number | string>(0);
     const [currentBalance, setCurrentBalance] = useState<number | string>(0);
+    const [paymentForNoInterest, setPaymentForNoInterest] = useState<number | string>(0);
     const [cutOffDay, setCutOffDay] = useState(1);
     const [paymentDueDateDay, setPaymentDueDateDay] = useState(1);
     
@@ -816,12 +817,14 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
                 setName(cardToEdit.name);
                 setCreditLimit(cardToEdit.creditLimit);
                 setCurrentBalance(cardToEdit.currentBalance);
+                setPaymentForNoInterest(cardToEdit.paymentForNoInterest || 0);
                 setCutOffDay(cardToEdit.cutOffDay);
                 setPaymentDueDateDay(cardToEdit.paymentDueDateDay);
             } else {
                 setName('');
                 setCreditLimit(0);
                 setCurrentBalance(0);
+                setPaymentForNoInterest(0);
                 setCutOffDay(1);
                 setPaymentDueDateDay(1);
             }
@@ -835,6 +838,7 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
             name,
             creditLimit: Number(creditLimit),
             currentBalance: Number(currentBalance),
+            paymentForNoInterest: Number(paymentForNoInterest) || undefined,
             cutOffDay,
             paymentDueDateDay
         });
@@ -849,7 +853,7 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
                     <label htmlFor="card-name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nombre de la Tarjeta</label>
                     <input type="text" id="card-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. BBVA Azul" className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" required />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="card-limit" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Límite de Crédito</label>
                         <input type="number" id="card-limit" value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" required min="0" step="0.01"/>
@@ -858,6 +862,10 @@ export const CreditCardModal = ({ isOpen, onClose, onSave, cardToEdit }: CreditC
                         <label htmlFor="card-balance" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Saldo Actual</label>
                         <input type="number" id="card-balance" value={currentBalance} onChange={(e) => setCurrentBalance(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" required min="0" step="0.01"/>
                     </div>
+                </div>
+                 <div>
+                    <label htmlFor="card-no-interest" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pago para no generar intereses <span className="text-gray-400">(Opcional)</span></label>
+                    <input type="number" id="card-no-interest" value={paymentForNoInterest} onChange={(e) => setPaymentForNoInterest(e.target.value)} className="w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none" min="0" step="0.01"/>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1232,6 +1240,72 @@ export const MakeCardPaymentModal = ({ isOpen, onClose, onSave, card }: MakeCard
                 <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
                     <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors bg-emerald-500 hover:bg-emerald-600 text-white`}>Realizar Abono</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+interface PayNoInterestModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (paymentAmount: number) => void;
+  card: CreditCard | null;
+}
+
+export const PayNoInterestModal = ({ isOpen, onClose, onSave, card }: PayNoInterestModalProps) => {
+    const [amount, setAmount] = useState<number | string>('');
+    const ringColorClass = getRingColorClass(card?.color);
+
+    useEffect(() => {
+        if (isOpen) {
+            setAmount('');
+        }
+    }, [isOpen]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const numericAmount = Number(amount);
+        if (numericAmount > 0 && card) {
+            onSave(numericAmount);
+        }
+        onClose();
+    };
+
+    if (!card || !card.paymentForNoInterest) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title={`Pagar para no Generar Intereses`}>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">Realiza el pago para liquidar el saldo que genera intereses de tu tarjeta <span className="font-bold">{card.name}</span>.</p>
+            <div className="space-y-2 mb-6 text-sm">
+                <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Monto para no generar intereses:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.paymentForNoInterest)}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">Saldo Total Actual:</span>
+                    <span className="font-semibold text-gray-900 dark:text-white">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(card.currentBalance)}</span>
+                </div>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="card-no-interest-payment-amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monto del Pago (MXN)</label>
+                    <input
+                        type="number"
+                        id="card-no-interest-payment-amount"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0.00"
+                        className={`w-full bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-md p-2 text-gray-900 dark:text-white focus:ring-2 ${ringColorClass} outline-none`}
+                        required
+                        min="0.01"
+                        step="0.01"
+                        max={card.paymentForNoInterest}
+                    />
+                </div>
+                <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white font-semibold hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button type="submit" className={`px-4 py-2 rounded-md font-semibold transition-colors bg-emerald-500 hover:bg-emerald-600 text-white`}>Realizar Pago</button>
                 </div>
             </form>
         </Modal>

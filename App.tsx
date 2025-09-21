@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { SavingsGoal, Payment, Priority, Frequency, WishlistItem, CreditCard, TimelessPayment, TimelessPaymentContribution } from './types.ts';
-import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, UpdateBalanceModal, PaymentCompletedModal, TimelessPaymentModal, TimelessPaymentContributionModal, AddPurchaseModal, MakeCardPaymentModal } from './components/modals.tsx';
+import { GoalModal, ProjectionModal, PaymentModal, ContributionModal, PaymentContributionModal, ConfirmationModal, SettingsModal, ChangePinModal, DayActionModal, WishlistModal, CreditCardModal, UpdateBalanceModal, PaymentCompletedModal, TimelessPaymentModal, TimelessPaymentContributionModal, AddPurchaseModal, MakeCardPaymentModal, PayNoInterestModal } from './components/modals.tsx';
 import GoalCard from './components/GoalCard.tsx';
 import PaymentCard from './components/PaymentCard.tsx';
 import WishlistCard from './components/WishlistCard.tsx';
@@ -123,6 +123,7 @@ const sampleCreditCards: CreditCard[] = [
         name: 'BBVA Azul',
         creditLimit: 50000,
         currentBalance: 12500,
+        paymentForNoInterest: 2500,
         cutOffDay: 25,
         paymentDueDateDay: 15,
         color: 'purple'
@@ -250,6 +251,7 @@ const App = () => {
   const [isTimelessContributionModalOpen, setTimelessContributionModalOpen] = useState(false);
   const [isAddPurchaseModalOpen, setAddPurchaseModalOpen] = useState(false);
   const [isMakeCardPaymentModalOpen, setMakeCardPaymentModalOpen] = useState(false);
+  const [isPayNoInterestModalOpen, setPayNoInterestModalOpen] = useState(false);
   
   const [goalToEdit, setGoalToEdit] = useState<SavingsGoal | null>(null);
   const [goalToProject, setGoalToProject] = useState<SavingsGoal | null>(null);
@@ -260,6 +262,7 @@ const App = () => {
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
   const [cardToUpdateBalance, setCardToUpdateBalance] = useState<CreditCard | null>(null);
   const [cardForTransaction, setCardForTransaction] = useState<CreditCard | null>(null);
+  const [cardToPayNoInterest, setCardToPayNoInterest] = useState<CreditCard | null>(null);
   const [itemToDelete, setItemToDelete] = useState<ItemToDelete>(null);
   const [selectedDateForModal, setSelectedDateForModal] = useState<Date | null>(null);
   const [paymentJustCompleted, setPaymentJustCompleted] = useState<Payment | null>(null);
@@ -632,20 +635,6 @@ const App = () => {
       .map(([category, items]) => ({ category, items }));
   }, [wishlist]);
 
-  const groupedAndSortedPayments = useMemo(() => {
-    if (filteredPayments.length === 0) return [];
-
-    const grouped: Record<string, Payment[]> = filteredPayments.reduce((acc, item) => {
-      acc[item.category] = acc[item.category] || [];
-      acc[item.category].push(item);
-      return acc;
-    }, {} as Record<string, Payment[]>);
-
-    return Object.entries(grouped)
-      .sort(([catA], [catB]) => catA.localeCompare(catB))
-      .map(([category, items]) => ({ category, items }));
-  }, [filteredPayments]);
-  
   const filteredTimelessPayments = useMemo(() => {
     return timelessPayments.filter(p => {
         if (timelessFilter === 'active') return !p.isCompleted;
@@ -1024,6 +1013,37 @@ const App = () => {
             return c;
         }));
     }, [cardForTransaction]);
+    
+    const handleOpenPayNoInterest = useCallback((card: CreditCard) => {
+        setCardToPayNoInterest(card);
+        setPayNoInterestModalOpen(true);
+    }, []);
+    
+    const handleSaveNoInterestPayment = useCallback((paymentAmount: number) => {
+        if (!cardToPayNoInterest) return;
+
+        // 1. Update card balance and paymentForNoInterest amount
+        setCreditCards(prev => prev.map(c => {
+            if (c.id === cardToPayNoInterest.id) {
+                const newBalance = Math.max(0, c.currentBalance - paymentAmount);
+                const newPaymentForNoInterest = Math.max(0, (c.paymentForNoInterest || 0) - paymentAmount);
+                return { 
+                    ...c, 
+                    currentBalance: Math.round(newBalance * 100) / 100,
+                    paymentForNoInterest: Math.round(newPaymentForNoInterest * 100) / 100
+                };
+            }
+            return c;
+        }));
+
+        // 2. Find and update associated payment object
+        const associatedPayment = payments.find(p => p.creditCardId === cardToPayNoInterest.id && (p.amount - p.paidAmount) > 0.001);
+
+        if (associatedPayment) {
+            handleSavePaymentContribution({ amount: paymentAmount, paymentId: associatedPayment.id });
+        }
+    }, [cardToPayNoInterest, payments, handleSavePaymentContribution]);
+
 
   const handleSaveTimelessPayment = useCallback((paymentData: Omit<TimelessPayment, 'id' | 'paidAmount' | 'isCompleted' | 'color' | 'createdAt' | 'contributions'> & { id?: string }) => {
     if (paymentData.id) { // Editing
@@ -1123,6 +1143,7 @@ const App = () => {
   const handleCloseUpdateBalanceModal = useCallback(() => { setUpdateBalanceModalOpen(false); setCardToUpdateBalance(null); }, []);
   const handleCloseAddPurchaseModal = useCallback(() => { setAddPurchaseModalOpen(false); setCardForTransaction(null); }, []);
   const handleCloseMakeCardPaymentModal = useCallback(() => { setMakeCardPaymentModalOpen(false); setCardForTransaction(null); }, []);
+  const handleClosePayNoInterestModal = useCallback(() => { setPayNoInterestModalOpen(false); setCardToPayNoInterest(null); }, []);
   const handleClosePaymentCompletedModal = useCallback(() => { setPaymentJustCompleted(null); }, []);
   const handleCloseTimelessPaymentModal = useCallback(() => { setTimelessPaymentModalOpen(false); setTimelessPaymentToEdit(null); }, []);
   const handleCloseTimelessContributionModal = useCallback(() => { setTimelessContributionModalOpen(false); setTimelessPaymentToContribute(null); }, []);
@@ -1397,6 +1418,7 @@ const App = () => {
                             onUpdateBalance={handleOpenUpdateBalance}
                             onAddPurchase={handleOpenAddPurchase}
                             onMakePayment={handleOpenMakeCardPayment}
+                            onPayNoInterest={handleOpenPayNoInterest}
                         />
                     ))}
                 </div>
@@ -1452,20 +1474,10 @@ const App = () => {
           )}
 
           {activeTab === 'payments' && (
-             groupedAndSortedPayments.length > 0 ? (
-                <div className="space-y-8">
-                    {groupedAndSortedPayments.map(({ category, items }) => (
-                        <div key={category}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <span className="w-2 h-8 bg-sky-500 rounded-full"></span>
-                                <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200">{category}</h3>
-                            </div>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                {items.map(payment => (
-                                    <PaymentCard key={payment.id} payment={payment} onEdit={handleOpenEditPayment} onDelete={handleDeletePayment} onContribute={handleOpenPaymentContributionModal}/>
-                                ))}
-                            </div>
-                        </div>
+             filteredPayments.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {filteredPayments.map(payment => (
+                        <PaymentCard key={payment.id} payment={payment} onEdit={handleOpenEditPayment} onDelete={handleDeletePayment} onContribute={handleOpenPaymentContributionModal}/>
                     ))}
                 </div>
             ) : (
@@ -1500,6 +1512,7 @@ const App = () => {
       <TimelessPaymentContributionModal isOpen={isTimelessContributionModalOpen} onClose={handleCloseTimelessContributionModal} onSave={handleSaveTimelessContribution} payment={timelessPaymentToContribute} />
       <AddPurchaseModal isOpen={isAddPurchaseModalOpen} onClose={handleCloseAddPurchaseModal} onSave={handleAddPurchase} card={cardForTransaction} />
       <MakeCardPaymentModal isOpen={isMakeCardPaymentModalOpen} onClose={handleCloseMakeCardPaymentModal} onSave={handleMakeCardPayment} card={cardForTransaction} />
+      <PayNoInterestModal isOpen={isPayNoInterestModalOpen} onClose={handleClosePayNoInterestModal} onSave={handleSaveNoInterestPayment} card={cardToPayNoInterest} />
       <ConfirmationModal isOpen={isConfirmModalOpen} onClose={handleCloseConfirmModal} onConfirm={handleConfirmDelete} title="Confirmar Eliminación" message="¿Estás seguro de que deseas eliminar este elemento? Esta acción no se puede deshacer." />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setSettingsOpen(false)} onToggleTheme={handleToggleTheme} onChangePin={() => { setSettingsOpen(false); setChangePinOpen(true); }} onLock={handleLockApp} theme={theme}/>
       {pin && <ChangePinModal isOpen={isChangePinOpen} onClose={() => setChangePinOpen(false)} currentPin={pin} onPinChanged={handleChangePin}/>}

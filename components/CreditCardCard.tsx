@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { CreditCard } from '../types.ts';
-import { DotsVerticalIcon, TrashIcon, CreditCardIcon, PlusIcon, WalletIcon } from './icons.tsx';
+import { DotsVerticalIcon, TrashIcon, CreditCardIcon, PlusIcon, WalletIcon, CheckCircle2Icon } from './icons.tsx';
 
 interface CreditCardCardProps {
     card: CreditCard;
@@ -9,6 +9,7 @@ interface CreditCardCardProps {
     onUpdateBalance: (card: CreditCard) => void;
     onAddPurchase: (card: CreditCard) => void;
     onMakePayment: (card: CreditCard) => void;
+    onPayNoInterest: (card: CreditCard) => void;
 }
 
 const formatCurrency = (amount: number) => {
@@ -30,8 +31,8 @@ const getCardColorStyles = (color: string) => {
     return colorMap[color] || colorMap.purple;
 };
 
-const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance, onAddPurchase, onMakePayment }: CreditCardCardProps) => {
-    const { id, name, creditLimit, currentBalance, cutOffDay, paymentDueDateDay, color } = card;
+const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance, onAddPurchase, onMakePayment, onPayNoInterest }: CreditCardCardProps) => {
+    const { id, name, creditLimit, currentBalance, cutOffDay, paymentDueDateDay, color, paymentForNoInterest } = card;
     const availableCredit = creditLimit - currentBalance;
     const usagePercentage = creditLimit > 0 ? (currentBalance / creditLimit) * 100 : 0;
     
@@ -122,15 +123,27 @@ const CreditCardCard = ({ card, onEdit, onDelete, onUpdateBalance, onAddPurchase
                         <p className="font-bold text-gray-300">Límite de Pago</p>
                         <p className="font-semibold text-white">{nextPaymentDueDate}</p>
                     </div>
+                     {paymentForNoInterest && paymentForNoInterest > 0 && !isPaid && (
+                        <div className="bg-emerald-900/50 border border-emerald-500/50 p-3 rounded-lg col-span-2">
+                            <p className="font-bold text-emerald-300">Pago para no generar intereses</p>
+                            <p className="font-semibold text-white text-lg">{formatCurrency(paymentForNoInterest)}</p>
+                        </div>
+                     )}
                 </div>
             </div>
 
             <div className="mt-auto grid grid-cols-2 gap-3">
+                 {paymentForNoInterest && paymentForNoInterest > 0 && !isPaid && (
+                    <button onClick={() => onPayNoInterest(card)} className="col-span-2 w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-emerald-500 hover:bg-emerald-600 text-white">
+                        <CheckCircle2Icon className="w-5 h-5"/>
+                        Pagar para no generar intereses
+                    </button>
+                )}
                 <button onClick={() => onAddPurchase(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors ${styles.button}`}>
                     <PlusIcon className="w-5 h-5"/>
                     Compra
                 </button>
-                <button onClick={() => onMakePayment(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-emerald-500 hover:bg-emerald-600 text-white`}>
+                <button onClick={() => onMakePayment(card)} className={`w-full flex items-center justify-center gap-2 text-center font-bold py-3 px-4 rounded-lg transition-colors bg-gray-700 hover:bg-gray-600 text-white`}>
                     <WalletIcon className="w-5 h-5"/>
                     Abono
                 </button>
